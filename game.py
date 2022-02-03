@@ -1,5 +1,6 @@
 import typing
 import numpy as np
+from card import Card
 from deck import Deck
 from player import Player
 from player import Computer
@@ -10,9 +11,9 @@ class Game:
     def __init__(self):
         self.deck = Deck() # this line generates a deck
         self.players: typing.List[Player] = [] # a list that contains all of the player instances
-        self.pile: list = [] # discard pile, all played cards get appended to this
+        self.pile: typing.List[Card] = [] # discard pile, all played cards get appended to this
         self.direction: int = 1 # for keeping track of the turn direction
-        self.currentCard: tuple = () # card on top of discard pile, card that needs to be reacted to
+        self.currentCard: Card = () # card on top of discard pile, card that needs to be reacted to
         self.bullyDraw: int = 0 # for keeping track of +2's and +4's
         self.winners: int = 0 # keeps track of all players that are finished
 
@@ -34,8 +35,8 @@ class Game:
         self.create_players()
         self.deck.shuffle(10)
         self.deal()
-        card: tuple = self.deck.draw()
-        while not isinstance(card[1], int):
+        card: Card = self.deck.draw()
+        while not isinstance(card.value, int):
             card = self.deck.redraw(card)
         self.put_on_pile(card)
         self.run()
@@ -80,44 +81,47 @@ class Game:
             currentPlayerId = self.handle_action(currentPlayer.choose_move(self.currentCard), currentPlayer)
         return
 
-    def handle_action(self, card: tuple, currentPlayer: Player) -> int:
+    def handle_action(self, action: typing.Union[Card, str], currentPlayer: Player) -> int:
         """Handles all possible choices a player could make, including passing and calling Uno incorrectly
         :param card: :param current player: :return next player id:"""
         currentPlayerId = currentPlayer.id
         
-        if not card: # player passed
+        if action == 'pass': # player passed
             print('-' * 64 + f'player {currentPlayerId} passed')
-        elif not card[1] and card[0] == 'Uno': # player did an incorrect uno call
+            return self.next_player_id(currentPlayerId)
+        elif action == 'wrongcall': # player did an incorrect uno call
             currentPlayer.draw(self.draw(3))
             return currentPlayerId
         else: # player played an actual card
-            print('-' * 64 + f'player {currentPlayerId} played {card}')
+            print('-' * 64 + f'player {currentPlayerId} played {action}')
+
+        card = action
+        value = card.value
 
         try:
-            int(card[1])
-        except IndexError:
-            pass
+            int(value)
         except ValueError:
-            if card[1] == 'Draw Two':
+            if value == 'Draw Two':
                 self.bullyDraw += 2
-            elif card[1] == 'Draw Four':
+            elif value == 'Draw Four':
                 self.bullyDraw += 4
-                colour = self.players[currentPlayerId-1].pick_colour()
-                card = (colour, 'Draw Four')
-            elif card[1] == 'Skip': # id gets changed to next until an active player is skipped
+                card.colour = self.players[currentPlayerId-1].pick_colour()
+
+            elif value == 'Skip': # id gets changed to next until an active player is skipped
                 while isinstance(self.players[self.next_player_id(currentPlayerId) - 1], Winner):
                     currentPlayerId = self.next_player_id(currentPlayerId)
                     print('-' * 64 + f'player {currentPlayerId} is already done')
                 currentPlayerId = self.next_player_id(currentPlayerId) # skip the active player
                 print('-' * 64 + f'player {currentPlayerId} was skipped')
-            elif card[1] == 'Reverse' and self.number_of_players() >= 3:
+            
+            elif value == 'Reverse' and self.number_of_players() >= 3:
                 self.direction *= -1
-            elif card[1] == 'Reverse' and self.number_of_players() == 2: # special behavior!
+            elif value == 'Reverse' and self.number_of_players() == 2: # special behavior!
                 self.put_on_pile(card) # immediately put the card on pile
                 return currentPlayerId # and return the player's own id
-            elif card[1] == 'Wild':
-                colour = self.players[currentPlayerId-1].pick_colour()
-                card = (colour, 'Wild')
+
+            elif value == 'Wild':
+                card.colour = self.players[currentPlayerId-1].pick_colour()
         
         self.put_on_pile(card)
         return self.next_player_id(currentPlayerId)
@@ -126,21 +130,25 @@ class Game:
         """Handles a player's response to being bullied with +2 or +4
         :param current player: :return 0 [falsy] or next player's id [truthy]:"""
         currentPlayerId = currentPlayer.id
-        
-        if (    self.currentCard[1] == 'Draw Two' and (
-                currentPlayer.has_card(('*', 'Draw Two')) or currentPlayer.has_card(('*', 'Draw Four')))) or (
-                self.currentCard[1] == 'Draw Four' and (
-                currentPlayer.has_card(('*', 'Draw Four')) or currentPlayer.has_card((self.currentCard[1], 'Draw Two')))):
+        col, val = self.currentCard.colour, self.currentCard.value
+        aDrawTwo: Card = Card('*', 'Draw Two')
+        aDrawFour: Card = Card('Black', 'Draw Four')
+
+        if (    val == 'Draw Two' and \
+                (currentPlayer.has_card(aDrawTwo) or currentPlayer.has_card(aDrawFour))) or (
+                val == 'Draw Four' and \
+                (currentPlayer.has_card(aDrawFour) or currentPlayer.has_card(Card(col, 'Draw Two')))):
 
             self.display_options(currentPlayer)
-            chosenCard = currentPlayer.choose_move(self.currentCard)
-            if chosenCard: # they could technically choose to not play their own +2 or +4
-                if chosenCard[1] != 'Draw Two' and chosenCard[1] != 'Draw Four':
+            chosenMove = currentPlayer.choose_move(self.currentCard)
+            if isinstance(chosenMove, Card): # they could technically choose to not play their own +2 or +4
+                if chosenMove.value != 'Draw Two' and chosenMove.value != 'Draw Four':
                     self.draw_bully(currentPlayer) # but then they would still have to draw the cards
-                currentPlayerId = self.handle_action(chosenCard, currentPlayer)
+                currentPlayerId = self.handle_action(chosenMove, currentPlayer)
                 return currentPlayerId # for a truthy value
-        self.draw_bully(currentPlayer)
-        return 0  # for a falsy value
+        else:
+            self.draw_bully(currentPlayer)
+            return 0  # for a falsy value
 
     def draw_bully(self, currentPlayer: Player) -> None:
         """Makes a player draw the total number of cards that they have been bullied with
@@ -197,21 +205,21 @@ class Game:
             player.receive_hand(self.draw(7))
         return
 
-    def put_on_pile(self, card: tuple) -> None:
+    def put_on_pile(self, card: Card) -> None:
         """Adds a given card to the pile :param card:"""
         if card:
             self.pile.append(card)
             self.currentCard = card
         return
 
-    def top_of_pile(self) -> tuple:
+    def top_of_pile(self) -> Card:
         """Removes the most recently played card from pile :return card:"""
         return self.pile.pop()
 
-    def draw(self, times: int = 1) -> typing.List[tuple]:
+    def draw(self, times: int = 1) -> typing.List[Card]:
         """Draws a specified number of cards from the deck
         :param no. cards: :return list of drawn cards:"""
-        cards: list = []
+        cards: typing.List[Card] = []
         for _ in range(times):
             if self.deck.is_empty():
                 self.deck.recreate(self.pile)
@@ -271,7 +279,7 @@ class Game:
               f'{len(shortHand)+2} - Call Uno\n')
         return
 
-    def display_hand(self, shortHand: list, cardsDisplayed: int) -> None:
+    def display_hand(self, shortHand: typing.List[tuple], cardsDisplayed: int) -> None:
         """Displays a player's hand, and if needed it does so on multiple rows"""
         space: str = ' ' # needed to make faststrings work since f'{' ' * n}' is illegal
         horizontalBound: str = ('+' + '-' * 5 + '+ ') * len(shortHand)
@@ -302,9 +310,10 @@ class Game:
         bigValueGetter: dict = Bigvalue()
 
         try:
-            char: str = colourDict[self.currentCard[0]]
-            val: str = self.currentCard[1] if isinstance(self.currentCard[1], int) else smallValueDict[self.currentCard[1]]
-            bigValue: list[str] = bigValueGetter(self.currentCard[1])
+            char: str = colourDict[self.currentCard.colour]
+            val: str = self.currentCard.value if isinstance(self.currentCard.value, int) \
+                       else smallValueDict[self.currentCard.value]
+            bigValue: list[str] = bigValueGetter(self.currentCard.value)
         except KeyError:
             return
 
@@ -332,15 +341,14 @@ class Game:
             print(line)
         return
 
-    def to_short_hand(self, longHand: list) -> typing.List[tuple]:
+    def to_short_hand(self, longHand: typing.List[Card]) -> typing.List[tuple]:
         """For a players hand, converts all of the values to short printables
         by combining to_short_colour and to_short_value calls
         :param player's hand: :return same hand, but shorter strings:"""
-        return [(self.to_short_colour(card[0]), self.to_short_value(card[1])) for card in longHand]
+        return [(self.to_short_colour(card.colour), self.to_short_value(card.value)) for card in longHand]
 
     def to_short_colour(self, colour: str) -> str:
         """For any colour, returns three-letter abbreviation :param cardcolour:"""
-        
         try:
             return {'Black': 'blk',
                     'Blue': '\033[0;34m' + 'blu' + '\033[0m',
@@ -348,21 +356,18 @@ class Game:
                     'Red': '\033[0;31m' + 'red' + '\033[0m',
                     'Green': '\033[0;32m' + 'grn' + '\033[0m'}[colour]
         except KeyError:
-            return
+            return '   '
 
     def to_short_value(self, value: str) -> str:
         """For any value, returns three-letter abbreviation :param cardvalue:"""
-        if value == 'Reverse':
-            return 'rev'
-        elif value == 'Skip':
-            return 'skp'
-        elif value == 'Draw Two':
-            return '+ 2'
-        elif value == 'Draw Four':
-            return '+ 4'
-        elif value == 'Wild':
-            return 'wld'
-        else:
+        try:
+            return {'Reverse': 'rev',
+                    'Skip': 'skp',
+                    'Draw Two': '+ 2',
+                    'Draw Four': '+ 4',
+                    'Wild': 'wld'
+                    }[value]
+        except KeyError:
             return f' {value} ' # number, but with one leading and trailing space
 
     def old_display_options(self, currentPlayer: Player) -> None:
@@ -372,8 +377,8 @@ class Game:
         self.display_pile()
         print(f'+---------player {currentPlayer.id}\'s turn--------+')
         for i, card in enumerate(currentPlayer.hand):
-            viewColour: str = f'{i+1}. | {card[0]} {space * (8 - len(card[0]) - len(str(i+1)))}'
-            viewValue: str = f'{card[1]} {space * (13 - len(str(card[1])))}'
+            viewColour: str = f'{i+1}. | {card.colour} {space * (8 - len(card.colour) - len(str(i+1)))}'
+            viewValue: str = f'{card.value} {space * (13 - len(str(card.value)))}'
             print(f'| {viewColour} | {viewValue} |')
         print('+--------------------------------+')
         passLine: str = f'{len(currentPlayer.hand)+1}. | Pass'
@@ -392,8 +397,8 @@ class Game:
         print('\n+~~~~~~~~~~top of pile~~~~~~~~~~~+')
         for i in range(len(self.pile)-1, -1, -1): # start, stop, step
             card = self.pile[i]
-            viewColour: str = f'{i+1}.| {card[0]} {space * (9 - len(card[0]) - len(str(i+1)))}'
-            viewValue: str = f'{card[1]} {space * (13 - len(str(card[1])))}'
+            viewColour: str = f'{i+1}.| {card.colour} {space * (9 - len(card.colour) - len(str(i+1)))}'
+            viewValue: str = f'{card.value} {space * (13 - len(str(card.value)))}'
             print(f'| {viewColour} | {viewValue} |')
             shown += 1
             if shown >= 4:
