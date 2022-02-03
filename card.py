@@ -1,3 +1,4 @@
+from __future__ import annotations
 import typing
 
 class Card:
@@ -8,14 +9,14 @@ class Card:
     def __str__(self) -> str:
         return f'[{self.colour} | {self.value}]'
 
-    def is_valid_move(self, topCard) -> bool:
+    def is_valid_move(self, topCard: Card) -> bool:
         if self.colour == 'Black': # always legal
             return True
         elif self.colour == topCard.colour or self.value == topCard.value:
             return True
         return False
     
-    def is_valid_last_move(self, topCard) -> bool:
+    def is_valid_last_move(self, topCard: Card) -> bool:
         if isinstance(self.value, int) and self.is_valid_move(topCard):
             return True
         return False
