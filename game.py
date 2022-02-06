@@ -3,6 +3,7 @@ import numpy as np
 from card import Card
 from deck import Deck
 from player import Player
+from player import Human
 from player import Computer
 from player import Winner
 from bigvalue import Bigvalue
@@ -51,7 +52,7 @@ class Game:
             nextPlayerId = currentPlayerId # why is this line here?
             currentPlayer = self.players[currentPlayerId-1] # get current player by their id
 
-            if currentPlayer.type == 'Winner': # checking if current player is still active
+            if isinstance(currentPlayer, Winner): # checking if current player is still active
                 print('-' * 64 + f'player {currentPlayerId} is already done')
                 currentPlayerId = self.next_player_id(currentPlayerId)
                 currentPlayer = self.players[currentPlayerId-1]
@@ -72,7 +73,7 @@ class Game:
             # "normal" behavior starts here
             self.display_options(currentPlayer)
             if not currentPlayer.has_valid_move(self.currentCard):
-                if currentPlayer.type == 'Human':
+                if isinstance(currentPlayer, Human):
                     _ = input(f'You (player {currentPlayer.id}) currently have no valid moves, press Enter to draw a card: ')
                 print('-' * 64 + f'player {currentPlayerId} could not play')                
                 currentPlayer.draw(self.draw())
@@ -194,7 +195,7 @@ class Game:
         else:
             numPlayers, numHumanPlayers = self.how_many_players()
         for i in range(1, numHumanPlayers+1):
-            self.players.append(Player(id = i))
+            self.players.append(Human(id = i))
         for i in range(numHumanPlayers+1, numPlayers+1):
             self.players.append(Computer(id = i))
         return
@@ -240,7 +241,7 @@ class Game:
         :return answer to question posed in method name:"""
         for player in self.players:
             playerId = player.id
-            if player.type != 'Winner' and len(player.hand) == 0: # check for new winners
+            if not isinstance(player, Winner) and len(player.hand) == 0: # check for new winners
                 self.winners += 1
                 print('\n|-_-_-_-_-_-_-_-_-_-_-_-|'+
                 f'\n |Player {playerId} is number {self.winners}!|'+
@@ -263,7 +264,7 @@ class Game:
 
         self.display_top_card()
         print(f'---player {currentPlayer.id}\'s turn---')
-        if currentPlayer.type == 'Human' and self.number_of_human_players() >= 2:
+        if isinstance(currentPlayer, Human) and self.number_of_human_players() >= 2:
             # so the previous human player can't see the current player's cards after they chose their move
             _ = input('Press Enter to view your options: ')
 
@@ -413,8 +414,8 @@ class Game:
 
     def number_of_human_players(self) -> int:
         """Returns number of human players in the game"""
-        return len([player for player in self.players if player.type == 'Human'])
+        return len([player for player in self.players if isinstance(player, Human)])
     
     def number_of_computer_players(self) -> int:
         """Returns number of human players in the game"""
-        return len([player for player in self.players if player.type == 'Computer'])
+        return len([player for player in self.players if isinstance(player, Computer)])

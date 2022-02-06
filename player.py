@@ -3,53 +3,12 @@ import typing
 from card import Card
 
 class Player():
-    """Parent class, contains all of the methods for a human player, and some methods
-    that are shared among all three Player types: Human, Computer & Winner"""
+    """Parent class, contains the shared methods of both human and computer players"""
     
     def __init__ (self, id: int):
         self.id: int = id # for differentiating between instances
-        self.type: str = 'Human' # for differentiating between humans and computers
         self.hand: typing.List[Card] = [] # for keeping track of their hand
         self.calledUno: bool = False # for checking whether or not they called uno
-
-    def choose_move(self, currentCard: Card) -> typing.Union[Card, str]:
-        """Makes a human player choose a card (or other option) when it's their turn"""
-        validInput = False
-        while not validInput:
-            try:
-                inp = int(input('Choose option (enter number):\n>'))
-                while not self.is_valid_choice(inp, currentCard): # move has to exist, and be valid
-                    inp = int(input('Invalid (move)\nPlease enter one of the displayed numbers:\n>'))
-                validInput = True
-                if inp == len(self.hand) + 1: # Pass
-                    return 'pass'
-                elif inp == len(self.hand) + 2: # Uno Call
-                    self.calledUno = True
-                    validUnoCall = self.handle_uno_call(currentCard) # prints if valid or not
-                    if validUnoCall:
-                        validInput = False
-                        continue # the player can now input the actual move they want to play
-                    return 'wrongcall' # false Uno Call gets returned to Game class' function
-            except ValueError:
-                print('Please use a numerical value')
-                continue
-        choice = self.hand[inp-1]
-        self.hand.remove(choice)
-        return choice # returns the corresponding card
-
-    def pick_colour(self) -> str:
-        """Prompts a new colour to be picked (generally after playing a wildcard)"""
-        colour: str = 'Purple'
-        while colour.upper() not in ['BLUE', 'RED', 'GREEN', 'YELLOW']:
-            colour = input('Pick a colour from:\nblue, yellow, green or red\n>')
-            if colour.upper() == 'BLUE':
-                return 'Blue'
-            elif colour.upper() == 'RED':
-                return 'Red'
-            elif colour.upper() == 'GREEN':
-                return 'Green'
-            elif colour.upper() == "YELLOW":
-                return 'Yellow'
 
     def is_valid_choice(self, choiceInput: int, topCard: Card) -> bool:
         """Checks whether a certain card can be played on the current top card,
@@ -78,7 +37,7 @@ class Player():
             if candidate == card:
                 return True
             elif (card.colour == "*" and card.value == candidate.value) or \
-               (card.value == "*" and card.colour == candidate.colour):
+                 (card.value == "*" and card.colour == candidate.colour):
                 return True
         return False
 
@@ -105,15 +64,57 @@ class Player():
             print('-' * 64 + f'player {self.id} called uno incorrectly and has to draw 3 cards')
             return False
 
-class Computer(Player):
-    """Inherits some of the methods of human player, but some functions need to work automatically,
-    so these are overridden by redefining them here."""
+class Human(Player):
+    """Inherits most methods from the parent class, but introduces two interactive methods"""
     def __init__(self, id: int):
         super().__init__(id)
-        self.type: str = 'Computer' # for differentiating between humans and computers
+    
+    def choose_move(self, currentCard: Card) -> typing.Union[Card, str]:
+        """Makes a human player choose a card (or other option) when it's their turn"""
+        validInput = False
+        while not validInput:
+            try:
+                inp = int(input('Choose option (enter number):\n>'))
+                while not self.is_valid_choice(inp, currentCard): # move has to exist, and be valid
+                    inp = int(input('Invalid (move)\nPlease enter one of the displayed numbers:\n>'))
+                validInput = True
+                if inp == len(self.hand) + 1: # Pass
+                    return 'pass'
+                elif inp == len(self.hand) + 2: # Uno Call
+                    self.calledUno = True
+                    validUnoCall = self.handle_uno_call(currentCard) # prints if valid or not
+                    if validUnoCall:
+                        validInput = False
+                        continue # the player can now input the actual move they want to play
+                    return 'wrongcall' # false Uno Call gets returned to Game class' function
+            except ValueError:
+                print('Please use a numerical value')
+                continue
+        choice = self.hand[inp-1]
+        self.hand.remove(choice)
+        return choice # returns the corresponding card
+    
+    def pick_colour(self) -> str:
+        """Prompts a new colour to be picked (generally after playing a wildcard)"""
+        colour: str = 'Purple'
+        while colour.upper() not in ['BLUE', 'RED', 'GREEN', 'YELLOW']:
+            colour = input('Pick a colour from:\nblue, yellow, green or red\n>')
+            if colour.upper() == 'BLUE':
+                return 'Blue'
+            elif colour.upper() == 'RED':
+                return 'Red'
+            elif colour.upper() == 'GREEN':
+                return 'Green'
+            elif colour.upper() == "YELLOW":
+                return 'Yellow'
+
+class Computer(Player):
+    """Inherits most methods from the parent class, but introduces two automatic methods"""
+    def __init__(self, id: int):
+        super().__init__(id)
 
     def choose_move(self, currentCard: Card) -> tuple:
-        """Overrides Player's method"""
+        """Lets a computer player choose a card (or other option)"""
         if self.correct_uno_call(currentCard): # computer calls uno correctly every time
             self.calledUno = True
             self.handle_uno_call(currentCard)
@@ -158,7 +159,6 @@ class Winner(Player):
     """Winner, inactive player"""
     def __init__(self, id: int):
         super().__init__(id)
-        self.type: str = 'Winner'
     
     def choose_move(self, currentCard: Card) -> str:
         """Overrides Player's method"""
