@@ -10,6 +10,14 @@ class Player():
         self.hand: typing.List[Card] = [] # for keeping track of their hand
         self.calledUno: bool = False # for checking whether or not they called uno
 
+    def choose_move(self, currentCard: Card) -> typing.Union[Card, str]:
+        """Overwritten by child classes"""
+        return ''
+    
+    def pick_colour(self) -> str:
+        """Overwritten by child classes"""
+        return ''
+
     def is_valid_choice(self, choiceInput: int, topCard: Card) -> bool:
         """Checks whether a certain card can be played on the current top card,
         also checks if the the card is a valid last move (when there is only one move left"""
@@ -113,7 +121,7 @@ class Computer(Player):
     def __init__(self, id: int):
         super().__init__(id)
 
-    def choose_move(self, currentCard: Card) -> tuple:
+    def choose_move(self, currentCard: Card) -> typing.Union[Card, str]:
         """Lets a computer player choose a card (or other option)"""
         if self.correct_uno_call(currentCard): # computer calls uno correctly every time
             self.calledUno = True

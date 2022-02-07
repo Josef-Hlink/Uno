@@ -49,7 +49,7 @@ class Game:
         currentPlayerId: int = 1 # player 1 starts
         while not self.is_done():
             
-            nextPlayerId = currentPlayerId # why is this line here?
+            nextPlayerId = currentPlayerId
             currentPlayer = self.players[currentPlayerId-1] # get current player by their id
 
             if isinstance(currentPlayer, Winner): # checking if current player is still active
@@ -108,10 +108,7 @@ class Game:
                 self.bullyDraw += 4
                 card.colour = self.players[currentPlayerId-1].pick_colour()
 
-            elif value == 'Skip': # id gets changed to next until an active player is skipped
-                while isinstance(self.players[self.next_player_id(currentPlayerId) - 1], Winner):
-                    currentPlayerId = self.next_player_id(currentPlayerId)
-                    print('-' * 64 + f'player {currentPlayerId} is already done')
+            elif value == 'Skip':
                 currentPlayerId = self.next_player_id(currentPlayerId) # skip the active player
                 print('-' * 64 + f'player {currentPlayerId} was skipped')
             
@@ -227,15 +224,23 @@ class Game:
                 self.pile = [self.top_of_pile()]
             cards.append(self.deck.draw())
         return cards
- 
-    def next_player_id(self, currentPlayerId: int) -> int:
+
+    def walk(self, currentPlayerId: int) -> int:
         """Determines what player is next to move
         :param current id: :return next id:"""
         next = currentPlayerId + self.direction # base case
         if next == 0 or next == self.number_of_players() + 1: # if exception
             next = 1 if self.direction == 1 else self.number_of_players() # handling
         return next
-
+    
+    def next_player_id(self, currentPlayerId: int) -> int:
+        """Determines what player is next to move
+        :param current id: :return next id:"""
+        next = self.walk(currentPlayerId)
+        while isinstance(self.players[next-1], Winner):
+            next = self.walk(next)
+        return next
+        
     def is_done(self) -> bool:
         """Checks for winners until only one loser is left
         :return answer to question posed in method name:"""
